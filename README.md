@@ -75,32 +75,39 @@ InfB-kv †       ·                                      0%
 
 ### Quality delta vs. no compression
 
-```
-                  + better than no compression
-                  - worse than no compression
+Green = Shiori improves quality. Red = Shiori reduces quality. Gray = no change.
 
-SWE-bench       + ████████████████████  +0.067
-HotPotQA †      + ███████████████       +0.050
-EntRAG          + █                     +0.001
-ZS-quality †    ·                        0.000
-RULER-NIAH      ·                        0.000
-RULER-VT        ·                        0.000
-InfB-passkey †  ·                        0.000
-InfB-kv †       ·                        0.000
-NIAH            ·                        0.000
-ZS-musique †    - █                     −0.004
-MeetingBank     - ██                    −0.005
-ZS-gov †        - ███                   −0.009
-LongBench       - ████                  −0.012
-2WikiMH         - ███████               −0.020
-LogBench        - ██████████            −0.027
+```diff
++SWE-bench       ████████████████████  +0.067
++HotPotQA †      ███████████████       +0.050
++EntRAG          █                     +0.001
+ ZS-quality †                           0.000
+ RULER-NIAH                             0.000
+ RULER-VT                               0.000
+ InfB-passkey †                         0.000
+ InfB-kv †                              0.000
+ NIAH                                   0.000
+-ZS-musique †    █                     −0.004
+-MeetingBank     ██                    −0.005
+-ZS-gov †        ███                   −0.009
+-LongBench       ████                  −0.012
+-2WikiMH         ███████               −0.020
+-LogBench        ██████████            −0.027
 ```
 
 † ML classifier training data — in-distribution for the classifier.
 
 ### How quality is measured
 
-Quality delta = (score with Shiori) − (score without compression), using the same model and same prompt. A delta of `+0.050` means Shiori's output scores 5 points higher than the uncompressed baseline; `−0.009` means 0.9 points lower.
+Every benchmark ships with **gold answers** written by human annotators before any model runs. Evaluation is fully automated: the model's output is compared to the gold answer using a fixed formula. No human judgment is involved during the benchmark run.
+
+**Quality delta** is:
+
+```
+delta = avg_score(Shiori-compressed prompts) − avg_score(original prompts)
+```
+
+Both runs use the same model, `temperature=0`, and the same gold answers. A positive delta means the model answered correctly more often with Shiori than without — compression changed the input tokens, which changed the model's attention distribution, and the net effect across the full eval set was favorable.
 
 Each benchmark uses the standard metric for its task type:
 
