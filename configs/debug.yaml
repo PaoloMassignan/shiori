@@ -1,0 +1,19 @@
+mode: debug
+
+provider:
+  name: openai
+  base_url: https://api.openai.com/v1
+
+router:
+  ml_model_path: models/shiori_router
+
+compressors:
+  llmlingua_rate: 0.5
+
+observability:
+  log_prompts: true
+  telemetry: true
+
+server:
+  host: 0.0.0.0
+  port: 8000
