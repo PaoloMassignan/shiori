@@ -1,14 +1,43 @@
 # Shiori
 
-A prompt compression proxy with task-aware routing.
+**Optimize quality first. Compress when safe.**
 
-Shiori sits between your application and any OpenAI-compatible API. It compresses prompts before sending them to the model, choosing the strategy based on what the task requires — not just how long the prompt is.
+Shiori sits between your application and any OpenAI-compatible API. It detects the task type, selects the strategy that historically preserved the most quality for that task, and compresses only when it is safe to do so.
 
 ```
 your app → Shiori → OpenAI (or any provider)
 ```
 
 Drop-in replacement. No client changes needed.
+
+---
+
+## The quality-first approach
+
+Most prompt compression systems ask: **"How much can we compress?"**
+
+Shiori asks: **"What is the safest strategy for this task?"**
+
+```
+Compression-first                   Shiori
+─────────────────────               ──────────────────────────────────
+Prompt                              Prompt
+  ↓                                   ↓
+Compress                            Detect task type
+  ↓                                   ↓
+Model                               Select quality-safe strategy
+                                      ↓
+Goal: maximize token savings        Compress (only when safe)
+                                      ↓
+                                    Model
+
+                                    Goal: maximize expected task quality
+                                          while reducing tokens when safe
+```
+
+The benchmark results show why this matters. On ZeroSCROLLS quality (multiple-choice), maximum compression destroys quality: **−0.350 delta**. On MeetingBank (meeting transcripts), the same compressor is the right call: **−0.005 delta with 51.7% saving**. The correct answer depends on the task type, not the prompt length.
+
+**Shiori does not route to the compressor with the highest compression ratio. It routes to the compressor that historically preserved the most quality for the detected task type.**
 
 ---
 
@@ -27,7 +56,7 @@ Drop-in replacement. No client changes needed.
 
 ---
 
-## When to use which strategy
+## Benchmark results
 
 This table comes from [LZPrompt](https://github.com/paolomassignan/LZPrompt), the benchmark platform behind Shiori's routing decisions.
 
@@ -97,7 +126,54 @@ Green = Shiori improves quality. Red = Shiori reduces quality. Gray = no change.
 
 † ML classifier training data — in-distribution for the classifier.
 
-### How quality is measured
+---
+
+## Quality First
+
+Token savings are useful. Quality degradation is expensive. A 50% compression ratio is not impressive if it destroys the answer. A 6% compression ratio that preserves critical information and improves quality by +0.067 (SWE-bench) is extremely valuable.
+
+### Quality vs. saving — where Shiori lands
+
+Each point is one benchmark. Shiori picks the strategy that historically placed each task as high and as far right as possible.
+
+```
+Quality
+ delta    + = lossless   * = llmlingua
+          │
+  +0.07   │   + ←SWE-bench
+  +0.05   │     + ←HotPotQA
+          │
+   0.00   ┼─+─+─+─+───────────────**─────────+──+─────────+────
+          │                       ↑           ↑  ↑         ↑
+  -0.01   │               MeetBank,ZS-gov  NIAH RULER  InfB-pass
+  -0.01   │               LongBench
+  -0.02   │  + ←2WikiMH
+  -0.03   │           + ←LogBench
+          │
+          └────┬───────────────────────────┬──────────────────┬──
+               0%                         50%               100%
+                               Token Saving →
+```
+
+The upper-right quadrant is the goal: high token saving with neutral or positive quality. Lossless benchmarks in the far right (RULER, NIAH, InfiniteBench passkey) land there: 70–91% saving at zero quality cost, because the filler text is purely repetitive and lossless compression eliminates it perfectly. LLMLingua benchmarks cluster in the middle-right: high saving with a small, acceptable quality cost on tasks where meaning is distributed (summarization).
+
+The bottom-left is where the wrong strategy lands. Applying LLMLingua to SWE-bench drops quality by **−0.267** because it removes file paths. Applying it to ZeroSCROLLS quality drops quality by **−0.350** because it removes the distinguishing tokens of the correct answer.
+
+### What the wrong strategy costs
+
+These are measured results for cases where both strategies were evaluated on the same benchmark:
+
+| Benchmark | Task | Correct strategy | Quality delta | Wrong strategy | Quality delta |
+|---|---|---|---|---|---|
+| SWE-bench | Patch generation | `lossless` | **+0.067** | `llmlingua` | −0.267 |
+| EnterpriseRAG | Entity QA | `lossless` | **+0.001** | `llmlingua` | −0.086 |
+| ZeroSCROLLS quality | MCQ | `lossless` | **0.000** | `llmlingua` | −0.350 |
+
+The cost of the wrong strategy is not a few percentage points — it is a collapse. Routing matters.
+
+---
+
+## How quality is measured
 
 Every benchmark ships with **gold answers** written by human annotators before any model runs. Evaluation is fully automated: the model's output is compared to the gold answer using a fixed formula. No human judgment is involved during the benchmark run.
 
@@ -107,7 +183,7 @@ Every benchmark ships with **gold answers** written by human annotators before a
 delta = avg_score(Shiori-compressed prompts) − avg_score(original prompts)
 ```
 
-Both runs use the same model, `temperature=0`, and the same gold answers. A positive delta means the model answered correctly more often with Shiori than without — compression changed the input tokens, which changed the model's attention distribution, and the net effect across the full eval set was favorable.
+Both runs use the same model, `temperature=0`, and the same gold answers. A positive delta means the model answered correctly more often with Shiori than without — compression changed the input token distribution, which changed the model's attention, and the net effect across the full eval set was favorable.
 
 Each benchmark uses the standard metric for its task type:
 
@@ -125,17 +201,17 @@ Each benchmark uses the standard metric for its task type:
 
 ## Routing
 
-Routing happens in three layers:
+Shiori routes to the strategy that maximizes expected task quality, not the one with the highest compression ratio. Routing happens in three layers:
 
 **1. Structural rules** — fast, authoritative, always consulted first.
 
-| Signal | Detection | Route |
-|---|---|---|
-| Git diff | `--- a/`, `+++ b/`, `@@` markers | `lossless` |
-| Log lines | timestamp + log-level pattern | `lossless` |
-| Stack trace | `Traceback`, `at com.`, `File "…" line` | `lossless` |
-| Code fence | paired ` ``` ` blocks | `lossless` |
-| Retrieval query | "needle", "pass key", "secret code", "follow the chain", … | `lossless` |
+| Signal | Detection | Route | Why |
+|---|---|---|---|
+| Git diff | `--- a/`, `+++ b/`, `@@` markers | `lossless` | File paths must survive intact |
+| Log lines | timestamp + log-level pattern | `lossless` | Template compressor handles these best |
+| Stack trace | `Traceback`, `at com.`, `File "…" line` | `lossless` | Line references must not be dropped |
+| Code fence | paired ` ``` ` blocks | `lossless` | Token order in code is load-bearing |
+| Retrieval query | "needle", "pass key", "secret code", "follow the chain", … | `lossless` | Exact values must survive |
 
 **2. ML classifier** — MiniLM binary classifier (lossless/lossy), <10ms on CPU, runs locally.
 
@@ -155,6 +231,30 @@ Input: `[QUESTION]` + `[ANSWER_FORMAT]` only — the task signal, not the full c
 | `aggressive` | Full routing: lossless or llmlingua based on detected task. |
 | `off` | Pass-through. No compression. |
 | `debug` | Aggressive + routing decision included in response JSON under `"shiori"`. |
+
+### Task decision map
+
+```mermaid
+graph TD
+    A[Prompt] --> B[Structural rules]
+    B -->|code / diff / logs / retrieval| C[lossless]
+    B -->|no match| D[ML classifier]
+    D -->|exact information needed| C
+    D -->|distributed meaning| E[llmlingua]
+    D -->|unavailable| F[Fallback heuristics]
+    F -->|long prose + summarize| E
+    F -->|otherwise| C
+    C --> G[Model]
+    E --> G
+
+    style C fill:#2d6a4f,color:#fff
+    style E fill:#b5451b,color:#fff
+    style G fill:#1d3557,color:#fff
+```
+
+**Exact information** — tasks where every token matters: code, retrieval, MCQ, entity QA, logs, multi-hop QA.
+
+**Distributed meaning** — tasks where meaning is spread across the text and no single token is critical: meeting summaries, document summaries, long mixed-topic corpora.
 
 ---
 
