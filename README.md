@@ -33,23 +33,63 @@ This table comes from [LZPrompt](https://github.com/paolomassignan/LZPrompt), th
 
 | Benchmark | Task type | Best strategy | Token saving | Quality delta | Notes |
 |---|---|---|---|---|---|
-| HotPotQA | Multi-hop QA | `lossless` | 8.7% | **+0.050** | Removing articles reduces distractor noise |
+| **HotPotQA** † | Multi-hop QA | `lossless` | 8.7% | **+0.050** | Removing articles reduces distractor noise |
 | EnterpriseRAG | Entity QA (Slack/Linear/Confluence) | `lossless` | 2.8% | **+0.001** | LLMLingua drops entity values → −0.086 |
 | MeetingBank | Meeting transcript summarization | `llmlingua` | **51.7%** | −0.005 | LLMLingua-2 was trained on meeting notes |
-| ZeroSCROLLS gov_report | Document summarization | `llmlingua` | **52.7%** | −0.009 | Long prose, key facts distributed |
-| ZeroSCROLLS quality | Multiple-choice (MCQ) | `lossless` | 9.0% | **0.000** | LLMLingua drops choice-distinguishing tokens → −0.350 |
-| ZeroSCROLLS musique | Multi-hop QA | `lossless` | 8.1% | −0.004 | — |
+| **ZeroSCROLLS gov_report** † | Document summarization | `llmlingua` | **52.7%** | −0.009 | Long prose, key facts distributed |
+| **ZeroSCROLLS quality** † | Multiple-choice (MCQ) | `lossless` | 9.0% | **0.000** | LLMLingua drops choice-distinguishing tokens → −0.350 |
+| **ZeroSCROLLS musique** † | Multi-hop QA | `lossless` | 8.1% | −0.004 | — |
 | SWE-bench | Patch generation | `lossless` | 5.6% | **+0.067** | LLMLingua removes file paths → −0.267 |
 | LogBench | Log template extraction | `lossless` (template) | **30.4%** | −0.027 | Template compressor: 4× more saving than caveman alone |
 | RULER MK-NIAH | Multi-key retrieval | `lossless` | **73.4%** | **0.000** | Synthetic filler repeats → dictionary near-perfect |
 | RULER VT | Variable chain tracking | `lossless` | **73.7%** | **0.000** | Dropping one chain link destroys the answer |
-| InfiniteBench passkey | Passkey retrieval (125K ctx) | `lossless` | **91.0%** | **0.000** | 12 rotating filler paragraphs → dictionary eliminates them |
-| InfiniteBench kv_retrieval | UUID key-value lookup | `lossless` | 0.0% | **0.000** | All values unique — nothing to compress, correctly passed through |
+| **InfiniteBench passkey** † | Passkey retrieval (125K ctx) | `lossless` | **91.0%** | **0.000** | 12 rotating filler paragraphs → dictionary eliminates them |
+| **InfiniteBench kv_retrieval** † | UUID key-value lookup | `lossless` | 0.0% | **0.000** | All values unique — nothing to compress, correctly passed through |
 | LongBench | QA + summarization (mixed) | `llmlingua` | **51.3%** | −0.012 | — |
 | NIAH | Needle-in-a-haystack (synthetic) | `lossless` | **71.9%** | **0.000** | — |
 | 2WikiMultihopQA | Multi-hop QA | `lossless` | 6.3% | −0.020 | — |
 
+† Used to train the ML classifier — results on these benchmarks may overestimate generalization.
+
 **Key insight**: the task type matters more than the prompt length. A 500-token QA prompt and a 5000-token QA prompt both need `lossless`. A 5000-token summarization prompt benefits from `llmlingua`.
+
+### Token saving by benchmark
+
+```mermaid
+xychart-beta
+    title "Token saving — Shiori best strategy per benchmark"
+    x-axis ["InfB-passkey †", "RULER-VT", "RULER-NIAH", "NIAH", "ZS-gov †", "MeetBank", "LongBench", "LogBench", "ZS-quality †", "HotPotQA †", "ZS-musique †", "2WikiMH", "SWE-bench", "EntRAG", "InfB-kv †"]
+    y-axis "Token saving (%)" 0 --> 100
+    bar [91.0, 73.7, 73.4, 71.9, 52.7, 51.7, 51.3, 30.4, 9.0, 8.7, 8.1, 6.3, 5.6, 2.8, 0.0]
+```
+
+### Quality delta vs. no compression
+
+```mermaid
+xychart-beta
+    title "Quality delta — positive means Shiori improves quality"
+    x-axis ["SWE-bench", "HotPotQA †", "EntRAG", "ZS-quality †", "RULER-NIAH", "RULER-VT", "InfB-passkey †", "InfB-kv †", "NIAH", "ZS-musique †", "MeetBank", "ZS-gov †", "LongBench", "2WikiMH", "LogBench"]
+    y-axis "Quality delta" -0.04 --> 0.08
+    bar [0.067, 0.050, 0.001, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, -0.004, -0.005, -0.009, -0.012, -0.020, -0.027]
+```
+
+† ML classifier training data — in-distribution for the classifier.
+
+### How quality is measured
+
+Quality delta = (score with Shiori) − (score without compression), using the same model and same prompt. A delta of `+0.050` means Shiori's output scores 5 points higher than the uncompressed baseline; `−0.009` means 0.9 points lower.
+
+Each benchmark uses the standard metric for its task type:
+
+| Task type | Benchmarks | Metric | What it measures |
+|---|---|---|---|
+| Multi-hop QA | HotPotQA, ZeroSCROLLS musique, 2WikiMultihopQA | Token F1 | Token-level overlap between predicted and reference answer |
+| Entity QA | EnterpriseRAG | Token F1 | Entity values extracted correctly |
+| Multiple-choice | ZeroSCROLLS quality | Exact match | Correct answer letter (A/B/C/D) |
+| Summarization | MeetingBank, ZeroSCROLLS gov_report, LongBench | ROUGE-L | Longest common subsequence overlap with reference summary |
+| Code / patch | SWE-bench | Resolution rate | Fraction of GitHub issues resolved (binary per instance, averaged) |
+| Log extraction | LogBench | Template accuracy | Exact match on extracted log template |
+| Retrieval | RULER MK-NIAH, RULER VT, InfiniteBench passkey/kv, NIAH | Exact match | Exact retrieval of the target value |
 
 ---
 
