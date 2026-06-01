@@ -55,22 +55,45 @@ This table comes from [LZPrompt](https://github.com/paolomassignan/LZPrompt), th
 
 ### Token saving by benchmark
 
-```mermaid
-xychart-beta
-    title "Token saving — Shiori best strategy per benchmark"
-    x-axis ["InfB-passkey †", "RULER-VT", "RULER-NIAH", "NIAH", "ZS-gov †", "MeetBank", "LongBench", "LogBench", "ZS-quality †", "HotPotQA †", "ZS-musique †", "2WikiMH", "SWE-bench", "EntRAG", "InfB-kv †"]
-    y-axis "Token saving (%)" 0 --> 100
-    bar [91.0, 73.7, 73.4, 71.9, 52.7, 51.7, 51.3, 30.4, 9.0, 8.7, 8.1, 6.3, 5.6, 2.8, 0.0]
+```
+InfB passkey †  ████████████████████████████████████  91%
+RULER-VT        █████████████████████████████         74%
+RULER-NIAH      █████████████████████████████         73%
+NIAH            ████████████████████████████          72%
+ZS-gov †        █████████████████████                 53%
+MeetingBank     ████████████████████                  52%
+LongBench       ████████████████████                  51%
+LogBench        ████████████                          30%
+ZS-quality †    ████                                   9%
+HotPotQA †      ███                                    9%
+ZS-musique †    ███                                    8%
+2WikiMH         ██                                     6%
+SWE-bench       ██                                     6%
+EntRAG          █                                      3%
+InfB-kv †       ·                                      0%
 ```
 
 ### Quality delta vs. no compression
 
-```mermaid
-xychart-beta
-    title "Quality delta — positive means Shiori improves quality"
-    x-axis ["SWE-bench", "HotPotQA †", "EntRAG", "ZS-quality †", "RULER-NIAH", "RULER-VT", "InfB-passkey †", "InfB-kv †", "NIAH", "ZS-musique †", "MeetBank", "ZS-gov †", "LongBench", "2WikiMH", "LogBench"]
-    y-axis "Quality delta" -0.04 --> 0.08
-    bar [0.067, 0.050, 0.001, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, -0.004, -0.005, -0.009, -0.012, -0.020, -0.027]
+```
+                  + better than no compression
+                  - worse than no compression
+
+SWE-bench       + ████████████████████  +0.067
+HotPotQA †      + ███████████████       +0.050
+EntRAG          + █                     +0.001
+ZS-quality †    ·                        0.000
+RULER-NIAH      ·                        0.000
+RULER-VT        ·                        0.000
+InfB-passkey †  ·                        0.000
+InfB-kv †       ·                        0.000
+NIAH            ·                        0.000
+ZS-musique †    - █                     −0.004
+MeetingBank     - ██                    −0.005
+ZS-gov †        - ███                   −0.009
+LongBench       - ████                  −0.012
+2WikiMH         - ███████               −0.020
+LogBench        - ██████████            −0.027
 ```
 
 † ML classifier training data — in-distribution for the classifier.
