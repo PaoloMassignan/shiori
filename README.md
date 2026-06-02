@@ -361,16 +361,18 @@ pip install -e ".[ml]"         # train / retrain the ML router
 
 Shiori adds overhead on top of the provider API call. The provider call itself (100–1000 ms depending on model and prompt length) always dominates.
 
-| Component | Typical overhead | When it runs |
-|---|---|---|
-| Structural rules | < 1 ms | Every request — regex only |
-| ML classifier | 5–10 ms | `aggressive` / `debug` mode, no structural match |
-| Lossless compression | 2–10 ms | When strategy = `lossless` |
-| LLMLingua compression | 200–500 ms (CPU) · 20–50 ms (GPU) | When strategy = `llmlingua` |
+All figures are **steady-state** (after the first request that triggers model loading). Cold-start latency on the first request is higher: the ML classifier loads a 22 MB model on first use; LLMLingua loads ~700 MB on first use. Subsequent requests pay only the inference cost.
 
-**Safe mode** (default): structural rules + lossless only. Total Shiori overhead is typically **< 10 ms**.
+| Component | Cold start (first call) | Steady state | When it runs |
+|---|---|---|---|
+| Structural rules | < 1 ms | < 1 ms | Every request — regex only, no model |
+| Lossless compression | 2–10 ms | 2–10 ms | When strategy = `lossless` — pure Python, no model |
+| ML classifier | 1–3 s (model load) | 5–10 ms | `aggressive` / `debug`, no structural match |
+| LLMLingua compression | 10–30 s (model load) | 200–500 ms (CPU) · 20–50 ms (GPU) | When strategy = `llmlingua` |
 
-**Aggressive mode**: adds ML classifier when no structural signal is present (~5–10 ms extra). LLMLingua routing adds 200–500 ms on CPU — relevant on long summarization prompts.
+**Safe mode** (default): structural rules + lossless only. No model loading. Total Shiori overhead is typically **< 10 ms** from the first request onward.
+
+**Aggressive mode**: ML classifier warms up on the first request that needs it (~1–3 s once, then 5–10 ms). LLMLingua warms up on the first summarization prompt (~10–30 s once, then 200–500 ms on CPU).
 
 The actual `compression_latency_ms` per request is included in the telemetry (`GET /metrics`) and in the response JSON in `debug` mode.
 
