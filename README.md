@@ -1,5 +1,7 @@
 # Shiori
 
+[![CI](https://github.com/PaoloMassignan/shiori/actions/workflows/ci.yml/badge.svg)](https://github.com/PaoloMassignan/shiori/actions/workflows/ci.yml)
+
 **Optimize quality first. Compress when safe.**
 
 Shiori sits between your application and any OpenAI-compatible API. It detects the task type, selects the strategy that historically preserved the most quality for that task, and compresses only when it is safe to do so.
@@ -355,6 +357,25 @@ pip install -e ".[ml]"         # train / retrain the ML router
 
 ---
 
+## Latency
+
+Shiori adds overhead on top of the provider API call. The provider call itself (100–1000 ms depending on model and prompt length) always dominates.
+
+| Component | Typical overhead | When it runs |
+|---|---|---|
+| Structural rules | < 1 ms | Every request — regex only |
+| ML classifier | 5–10 ms | `aggressive` / `debug` mode, no structural match |
+| Lossless compression | 2–10 ms | When strategy = `lossless` |
+| LLMLingua compression | 200–500 ms (CPU) · 20–50 ms (GPU) | When strategy = `llmlingua` |
+
+**Safe mode** (default): structural rules + lossless only. Total Shiori overhead is typically **< 10 ms**.
+
+**Aggressive mode**: adds ML classifier when no structural signal is present (~5–10 ms extra). LLMLingua routing adds 200–500 ms on CPU — relevant on long summarization prompts.
+
+The actual `compression_latency_ms` per request is included in the telemetry (`GET /metrics`) and in the response JSON in `debug` mode.
+
+---
+
 ## Tests
 
 No API key required. Provider calls are mocked.
@@ -362,6 +383,8 @@ No API key required. Provider calls are mocked.
 ```bash
 pytest
 ```
+
+Tests run on Ubuntu, Windows, and macOS across Python 3.10–3.12 via GitHub Actions.
 
 ---
 
