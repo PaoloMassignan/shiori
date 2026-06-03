@@ -14,6 +14,63 @@ Drop-in replacement. No client changes needed.
 
 ---
 
+## Why Shiori
+
+Shiori provides three independent benefits.
+
+### 1. Lower cost
+
+Fewer tokens sent to the provider means lower API cost. The reduction depends on the task and content type — from 3% on dense entity QA to 91% on synthetic retrieval benchmarks.
+
+### 2. Context window amplification
+
+This is often more important than cost.
+
+When repositories, logs, retrieval results, or tool outputs exceed the available context window, information must be truncated before the model ever sees it. Shiori compresses before the prompt reaches the provider — increasing the amount of useful information that fits into the same window.
+
+```
+Without Shiori                        With Shiori
+──────────────────────────────        ──────────────────────────────
+Context window (128k tokens)          Context window (128k tokens)
+
+┌──────────────────────────┐          ┌──────────────────────────┐
+│ Repository        80k    │          │ Repository  (−6%)  75k   │
+│ Logs              48k    │          │ Logs       (−70%)  14k   │
+│ ░░░ TRUNCATED ░░░        │          │ Issue               1k   │
+│ Issue            [lost]  │          │                          │
+└──────────────────────────┘          │  Full context fits.      │
+                                      └──────────────────────────┘
+ 201k tokens — 73k discarded           90k tokens — nothing lost
+```
+
+Shiori does not just reduce token costs. **It increases the effective capacity of the model's context window.**
+
+This matters most for:
+
+- **Coding agents** (Claude Code, Cursor, OpenHands, Codex) processing large repositories or long tool output chains
+- **RAG systems** where retrieval returns more chunks than fit the window
+- **Enterprise search** over Slack, Linear, Confluence, or email archives
+- **Log analysis** where a log file dwarfs the context window
+- **Long conversations** accumulating tool outputs over many turns
+
+### 3. Quality preservation
+
+Shiori routes to the strategy that historically preserved the highest task quality. Compression is only accepted when the expected quality tradeoff is favorable. On several tasks, quality improves — removing noise helps the model focus.
+
+| Benchmark | Quality delta with Shiori |
+|---|---|
+| SWE-bench | **+0.067** |
+| HotPotQA | **+0.050** |
+| RULER / NIAH / InfiniteBench | **0.000** |
+| MeetingBank | −0.005 |
+| LongBench | −0.012 |
+
+---
+
+**The goal**: maximize useful information delivered to the model per token budget.
+
+---
+
 ## The quality-first approach
 
 Most prompt compression systems ask: **"How much can we compress?"**
