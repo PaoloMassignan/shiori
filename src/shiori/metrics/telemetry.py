@@ -26,6 +26,8 @@ class RequestRecord:
     token_saving_ratio: float
     compression_latency_ms: float
     provider_latency_ms: float
+    tool_original_tokens: int = 0
+    tool_compressed_tokens: int = 0
     timestamp: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict:
@@ -40,6 +42,8 @@ class RequestRecord:
             "compressed_tokens": self.compressed_tokens,
             "dictionary_tokens": self.dictionary_tokens,
             "token_saving_ratio": round(self.token_saving_ratio, 4),
+            "tool_original_tokens": self.tool_original_tokens,
+            "tool_compressed_tokens": self.tool_compressed_tokens,
             "compression_latency_ms": round(self.compression_latency_ms, 2),
             "provider_latency_ms": round(self.provider_latency_ms, 2),
             "timestamp": self.timestamp,
@@ -60,6 +64,8 @@ class Telemetry:
         avg_saving = sum(r.token_saving_ratio for r in self._records) / total
         total_original = sum(r.original_tokens for r in self._records)
         total_compressed = sum(r.compressed_tokens for r in self._records)
+        tool_original = sum(r.tool_original_tokens for r in self._records)
+        tool_compressed = sum(r.tool_compressed_tokens for r in self._records)
         by_strategy: dict[str, int] = {}
         for r in self._records:
             by_strategy[r.strategy] = by_strategy.get(r.strategy, 0) + 1
@@ -68,5 +74,7 @@ class Telemetry:
             "avg_token_saving_ratio": round(avg_saving, 4),
             "total_original_tokens": total_original,
             "total_compressed_tokens": total_compressed,
+            "tool_original_tokens": tool_original,
+            "tool_compressed_tokens": tool_compressed,
             "by_strategy": by_strategy,
         }

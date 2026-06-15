@@ -30,6 +30,9 @@ dev = [
 
 [project.scripts]
 shiori = "shiori.api.server:main"
+shiori-bench = "shiori.bench.__main__:main"
+shiori-evals = "shiori.evals.__main__:main"
+shiori-quality = "shiori.evals.quality.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/shiori"]

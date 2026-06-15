@@ -51,6 +51,7 @@ class LLMLinguaCompressor:
         compressor = _get_compressor()
 
         question = self.question_hint or "Answer the question."
+        target_token = max(50, int(original_tokens * self.rate))
         result = compressor.compress_prompt(
             text,
             rate=self.rate,
@@ -60,7 +61,7 @@ class LLMLinguaCompressor:
             reorder_context="sort",
             dynamic_context_compression_ratio=0.3,
             condition_compare=True,
-            target_token=2000,
+            target_token=target_token,
         )
         compressed_text = result["compressed_prompt"]
         compressed_tokens = _count(compressed_text)

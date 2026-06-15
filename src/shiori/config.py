@@ -55,6 +55,8 @@ class ShioriConfig:
       debug      - aggressive + extended logging of routing decisions
     """
     mode: str = "safe"
+    cache_align: bool = True
+    ccr_ttl_seconds: int = 600
     provider: ProviderConfig = field(default_factory=ProviderConfig)
     router: RouterConfig = field(default_factory=RouterConfig)
     compressors: CompressorConfig = field(default_factory=CompressorConfig)
@@ -67,6 +69,8 @@ class ShioriConfig:
             data = yaml.safe_load(f) or {}
         return cls(
             mode=os.getenv("SHIORI_MODE", data.get("mode", "safe")),
+            cache_align=data.get("cache_align", True),
+            ccr_ttl_seconds=data.get("ccr_ttl_seconds", 600),
             provider=ProviderConfig(**data.get("provider", {})),
             router=RouterConfig(**data.get("router", {})),
             compressors=CompressorConfig(**data.get("compressors", {})),

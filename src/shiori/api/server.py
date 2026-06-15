@@ -20,12 +20,16 @@ from fastapi.responses import JSONResponse
 from shiori.config import ShioriConfig
 from shiori.compressors.caveman import CavemanCompressor
 from shiori.compressors.dictionary import DictionaryCompressor
+from shiori.compressors.ast_compressor import AstCompressor
+from shiori.compressors.json_compressor import JsonCompressor
 from shiori.compressors.lossless import LosslessCompressor
 from shiori.compressors.template import TemplateCompressor
 from shiori.compressors.base import CompressionResult
 from shiori.providers.openai import OpenAIProvider
 from shiori.metrics.telemetry import Telemetry
 from shiori.api.openai_routes import build_router
+from shiori.api.ccr_routes import build_ccr_router
+from shiori.ccr.store import CcrStore
 
 
 def _build_app(cfg: ShioriConfig) -> FastAPI:
@@ -45,6 +49,10 @@ def _build_app(cfg: ShioriConfig) -> FastAPI:
                         original_tokens=t, compressed_tokens=t, content_tokens=t,
                     )
             return _NoOp()
+        if strategy == "ast":
+            return AstCompressor()
+        if strategy == "json":
+            return JsonCompressor()
         if strategy == "lossless":
             return LosslessCompressor(
                 min_occurrences=cfg.compressors.min_occurrences,
@@ -67,10 +75,16 @@ def _build_app(cfg: ShioriConfig) -> FastAPI:
 
     def provider_factory():
         api_key = cfg.provider.api_key or os.getenv("OPENAI_API_KEY", "")
-        return OpenAIProvider(base_url=cfg.provider.base_url, api_key=api_key)
+        return OpenAIProvider(
+            base_url=cfg.provider.base_url,
+            api_key=api_key,
+            cache_align=cfg.cache_align,
+        )
 
-    api_router = build_router(cfg, compressor_factory, provider_factory, telemetry)
+    ccr_store = CcrStore(ttl_seconds=cfg.ccr_ttl_seconds)
+    api_router = build_router(cfg, compressor_factory, provider_factory, telemetry, ccr_store)
     app.include_router(api_router)
+    app.include_router(build_ccr_router(ccr_store))
 
     @app.get("/health")
     async def health():
